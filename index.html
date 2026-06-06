@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>민법 한눈에 맵</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f6f3ec; --card:#fffefb; --ink:#2c2a26; --muted:#76726a; --faint:#9b968c;
+    --line:#e6e1d6; --chip:#f0ece2; --chipink:#5b574e;
+    --hot:#a8431f; --hotbg:#f7e7df; --weak:#8a5a0c; --weakbg:#f6ecd6; --done:#2f7d5c; --donebg:#e2f0e6;
+    --accent:#0f6e56; --accent-bg:#e4f1ea; --accent-line:#bfe0d1; --accent-dark:#0a5040;
+    --shadow:0 1px 2px rgba(50,45,35,.05),0 6px 18px rgba(50,45,35,.04);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"IBM Plex Sans KR",sans-serif;background:var(--paper);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
+
+  header.top{padding:34px 0 18px}
+  .brand{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  h1{font-family:"Hahmlet",serif;font-weight:600;font-size:30px;letter-spacing:-.01em}
+  h1 .sub{display:block;font-family:"IBM Plex Sans KR";font-weight:300;font-size:14px;color:var(--muted);margin-top:6px;letter-spacing:0}
+  .dday{font-family:"Hahmlet",serif;text-align:right;line-height:1.15}
+  .dday .num{font-size:30px;font-weight:600;color:var(--hot)}
+  .dday .lab{font-family:"IBM Plex Sans KR";font-size:12px;color:var(--muted);font-weight:300}
+
+  .toolbar{position:sticky;top:0;z-index:30;background:rgba(246,243,236,.92);backdrop-filter:blur(8px);
+    padding:12px 0;margin-bottom:6px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .search{flex:1;min-width:200px;position:relative}
+  .search input{width:100%;font-family:inherit;font-size:14px;padding:9px 13px 9px 34px;border:1px solid var(--line);
+    border-radius:10px;background:var(--card);color:var(--ink);outline:none}
+  .search input:focus{border-color:var(--faint)}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:var(--faint)}
+  .filters{display:flex;gap:6px;flex-wrap:wrap}
+  .filters button{font-family:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;
+    background:var(--card);color:var(--chipink);cursor:pointer;transition:.15s}
+  .filters button:hover{border-color:var(--faint)}
+  .filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .filters button .dot{font-weight:500}
+
+  .sync{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);font-weight:300;width:100%}
+  .sync .pip{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+  .sync.on .pip{background:var(--done)} .sync.off .pip{background:var(--weak)} .sync.local .pip{background:var(--faint)}
+  .sync button{font-family:inherit;font-size:12.5px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;
+    background:var(--card);color:var(--chipink);cursor:pointer;margin-left:auto}
+  .sync button:hover{border-color:var(--faint)}
+
+  .legend{font-size:12.5px;color:var(--muted);margin:14px 0 22px;font-weight:300}
+  .legend b{font-weight:500;color:var(--chipink)}
+
+  .subj-head{display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:12px;margin-bottom:14px;
+    background:var(--accent-bg);border:1px solid var(--accent-line)}
+  .subj-head .nm{font-family:"Hahmlet",serif;font-weight:600;font-size:19px;color:var(--accent-dark)}
+  .subj-head .tally{margin-left:auto;display:flex;gap:12px;font-size:12.5px;color:var(--accent-dark);opacity:.85}
+  .subj-head .tally b{font-weight:500}
+
+  .part-label{font-family:"Hahmlet",serif;font-size:14px;color:var(--accent);font-weight:500;
+    margin:18px 0 10px;padding-left:2px;display:flex;align-items:center;gap:9px}
+  .part-label::before{content:"";width:16px;height:2px;background:var(--accent);border-radius:2px}
+  .part-label:first-of-type{margin-top:4px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px 16px;box-shadow:var(--shadow)}
+  .card-title{font-size:15px;font-weight:500;margin-bottom:11px;display:flex;align-items:center;gap:7px;color:var(--ink)}
+  .card-title .ct-tag{font-size:13px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{font-size:13px;font-weight:300;padding:5px 11px;border-radius:9px;background:var(--chip);color:var(--chipink);
+    cursor:pointer;border:1px solid transparent;transition:.13s;user-select:none;white-space:nowrap}
+  .chip:hover{filter:brightness(.97);transform:translateY(-1px)}
+  .chip .tg{font-weight:500;margin-left:4px}
+  .chip[data-status="hot"]{background:var(--hotbg);color:var(--hot);border-color:#eccdbf}
+  .chip[data-status="weak"]{background:var(--weakbg);color:var(--weak);border-color:#ead9b3}
+  .chip[data-status="done"]{background:var(--donebg);color:var(--done);border-color:#bfded0}
+  .chip.hide,.card.hide,.part-label.hide{display:none}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);font-size:12px;color:var(--faint);font-weight:300;line-height:1.7}
+  @media(max-width:560px){h1{font-size:24px}.dday .num{font-size:24px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>민법 한눈에 맵<span class="sub">로스쿨 민법의 정석 9판 목차 기준 · 채권총론 → 각론 → 민총 → 물권</span></h1>
+      <div class="dday"><span class="num" id="dnum">D-…</span><span class="lab">제16회 변시 · 2027.1.12</span></div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input id="q" type="text" placeholder="쟁점·조문 검색 (예: 상계, 366, 표현대리)">
+    </div>
+    <div class="filters" id="filters">
+      <button data-f="all" class="on">전체</button>
+      <button data-f="hot"><span class="dot" style="color:var(--hot)">◎</span> 빈출</button>
+      <button data-f="weak"><span class="dot" style="color:var(--weak)">★</span> 약점</button>
+      <button data-f="done"><span class="dot" style="color:var(--done)">✓</span> 완료</button>
+      <button data-f="none">미분류</button>
+    </div>
+    <div class="sync local" id="sync"><span class="pip"></span><span id="syncMsg">로컬 저장 (이 브라우저)</span><button id="syncBtn" hidden></button></div>
+  </div>
+
+  <p class="legend">칩을 누르면 <b>◎ 빈출 → ★ 약점 → ✓ 완료 → 없음</b> 순서로 바뀝니다. Firebase 설정을 넣고 로그인하면 기기 간 동기화됩니다.</p>
+
+  <main>
+    <div class="subj-head"><span class="nm">민법</span><span class="tally" id="tally"></span></div>
+    <div id="map"></div>
+  </main>
+
+  <footer>
+    유정 님의 변시 준비용 학습 지도 · 설정 전에는 이 브라우저에만 저장됩니다.
+  </footer>
+</div>
+
+<!-- ===================== 설정 + 로직 ===================== -->
+<script type="module">
+/* ┌─────────────────────────────────────────────────────────┐
+   │  Firebase 설정 (선택)                                      │
+   │  아래 firebaseConfig를 본인 프로젝트 값으로 바꾸면          │
+   │  구글 로그인 → 기기 간 동기화가 켜집니다.                   │
+   │  그대로 두면 이 브라우저에만 저장됩니다.                    │
+   └─────────────────────────────────────────────────────────┘ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCz-QziDKUKmYAIlXigd3GlTaM_oyzj2dQ",
+  authDomain: "studymap-89c09.firebaseapp.com",
+  projectId: "studymap-89c09",
+  storageBucket: "studymap-89c09.firebasestorage.app",
+  messagingSenderId: "20865447129",
+  appId: "1:20865447129:web:419f96f419b4cba0a43ac8",
+  measurementId: "G-L7LW590E8Q"
+};
+/* ─────────────────────────────────────────────────────────── */
+
+const S = ['','hot','weak','done'];
+const SYM = {hot:'◎', weak:'★', done:'✓'};
+
+// 민법 데이터 (chip: "텍스트" 또는 ["텍스트","hot"|"weak"|"done"])
+const GROUPS = [
+ {part:'Part 1 · 채권총론', cards:[
+   {t:'서설 · 채권의 목적', c:['특정물채권','종류채권','선택채권','이자채권']},
+   {t:'채무불이행', c:['이행지체','이행불능',['대상청구권','hot'],'이행거절','불완전이행','이행보조자(391)']},
+   {t:'손해배상 · 채권자지체', c:['배상범위(393)','과실상계','배상액예정(398)','채권자지체']},
+   {t:'채권자대위권(404)', c:['피보전채권','보전필요성','피대위권리','행사·효과']},
+   {t:'채권자취소권(406)', tag:'hot', c:['사해행위','사해의사','제척기간','원상회복']},
+   {t:'채권양도 · 채무인수', c:['대항요건(450·451)','면책적/병존적','계약인수','이행인수']},
+   {t:'변제', c:[['변제충당','weak'],'변제자대위(482)','변제제공']},
+   {t:'상계', tag:'weak', c:['상계적상(492)','금지사유(496~498)','상계·소멸시효(495)']},
+   {t:'대물변제 등', c:['대물변제(466)','공탁(487)','경개(500)','면제(506)','혼동(507)']},
+   {t:'다수당사자', c:['분할·불가분(409~411)','연대채무(416~422)','부진정연대','보증채무']},
+ ]},
+ {part:'Part 2 · 채권각론', cards:[
+   {t:'계약 총설 · 성립', c:['계약의 종류','청약·승낙','계약체결상 과실(535)','교섭 부당파기']},
+   {t:'계약의 효력', c:[['동시이행항변권(536)','weak'],'위험부담(537·538)','제3자를 위한 계약']},
+   {t:'해제 · 해지', c:['법정해제(544)','해제와 제3자(548①단)','원상회복','해제·손배(551)','합의해제']},
+   {t:'증여 · 매매', c:['해약금해제(565)','과실귀속(587)',['매도인 담보책임(570~581)','hot']]},
+   {t:'임대차', c:['임차인 권리·의무','양도·전대(629)','보증금','주임법','상임법']},
+   {t:'도급 · 기타 전형계약', c:['수급인 담보책임(667)','소비대차','사용대차','위임','조합','화해']},
+   {t:'사무관리', c:['성립요건(734)','전용물소권','효과']},
+   {t:'부당이득', tag:'hot', c:['급부·침해·비용·구상','반환범위','특례(742~746)','다수당사자']},
+   {t:'불법행위', c:['성립요건','소멸시효(766)','사용자책임(756)','공작물(758)','공동불법행위(760)']},
+ ]},
+ {part:'Part 3 · 민법총칙', cards:[
+   {t:'민법 일반 · 신의칙', c:['관습법','사적자치','신의칙','권리남용']},
+   {t:'권리의 주체', c:['태아의 권리능력','제한능력자','부재·실종','법인(35)','비법인사단']},
+   {t:'권리의 객체', c:['물건','주물·종물','원물·과실']},
+   {t:'법률행위 · 의사표시', c:['법률행위 해석','103·104','비진의(107)','허위표시(108)','착오(109)','사기·강박(110)']},
+   {t:'대리', c:['대리권남용','복대리',['표현대리(125·126·129)','hot'],'무권대리(135·136)']},
+   {t:'무효와 취소', c:['일부무효(137)','전환(138)','추인(139)','유동적무효','취소(141·143~146)']},
+   {t:'조건 · 기한 · 기간', c:['조건과 기한','기간']},
+   {t:'소멸시효', c:['기산점','시효기간','중단(청구·압류·승인)','완성효과','이익포기','남용']},
+ ]},
+ {part:'Part 4 · 물권법', cards:[
+   {t:'물권총칙', c:['물권적청구권(213·214)','점유자와 회복자(201~203)','상린관계','혼동']},
+   {t:'부동산물권변동 · 등기', c:['중간생략등기','무효등기 유용','가등기','등기청구권','추정력']},
+   {t:'동산물권변동', c:['선의취득(249)','도품·유실물 특례']},
+   {t:'점유권', c:['점유 태양(197)','점유보호청구권(204~206)','자력구제(209)']},
+   {t:'소유권', c:[['취득시효(245)','hot'],'부합','공유·합유·총유(262~277)',['명의신탁(실명법)','hot']]},
+   {t:'용익물권', c:['지상권','지역권',['법정지상권(관습상·366·305)','hot'],'분묘기지권','전세권(312)']},
+   {t:'담보물권', c:['유치권','질권','저당권·물상대위(370·342)','근저당','공동저당(368)']},
+   {t:'비전형담보', c:['가등기담보법','양도담보','동산·채권담보권']},
+ ]},
+];
+
+// ---- 로컬 저장 ----
+let store = {};
+try{ store = JSON.parse(localStorage.getItem('minbeop_map')||'{}'); }catch(e){ store = {}; }
+function saveLocal(){ try{ localStorage.setItem('minbeop_map', JSON.stringify(store)); }catch(e){} }
+
+const defaults = {};
+function norm(ch){ return (typeof ch==='string') ? [ch,''] : ch; }
+function eff(id){ return (id in store) ? store[id] : (defaults[id]||''); }
+
+// ---- 렌더 ----
+const map=document.getElementById('map');
+GROUPS.forEach((g, gi)=>{
+  const pl=document.createElement('div'); pl.className='part-label'; pl.textContent=g.part;
+  map.appendChild(pl);
+  const grid=document.createElement('div'); grid.className='grid';
+  g.cards.forEach((card, ci)=>{
+    const el=document.createElement('div'); el.className='card';
+    const title=document.createElement('div'); title.className='card-title';
+    title.innerHTML = card.t + (card.tag?' <span class="ct-tag" style="color:var(--'+card.tag+')">'+SYM[card.tag]+'</span>':'');
+    el.appendChild(title);
+    const chips=document.createElement('div'); chips.className='chips';
+    card.c.forEach((raw, chi)=>{
+      const [txt, def]=norm(raw);
+      const id='c|'+gi+'|'+ci+'|'+chi;
+      if(def) defaults[id]=def;
+      const st=eff(id);
+      const chip=document.createElement('span');
+      chip.className='chip'; chip.dataset.id=id; chip.dataset.text=txt;
+      if(st) chip.dataset.status=st;
+      chip.innerHTML = txt + (st?'<span class="tg">'+SYM[st]+'</span>':'');
+      chip.addEventListener('click', ()=>cycle(chip));
+      chips.appendChild(chip);
+    });
+    el.appendChild(chips);
+    grid.appendChild(el);
+  });
+  map.appendChild(grid);
+});
+
+function cycle(chip){
+  const cur=chip.dataset.status||'';
+  const next=S[(S.indexOf(cur)+1)%S.length];
+  if(next){ chip.dataset.status=next; } else { delete chip.dataset.status; }
+  store[chip.dataset.id]=next;
+  chip.innerHTML=chip.dataset.text+(next?'<span class="tg">'+SYM[next]+'</span>':'');
+  saveLocal(); updateTally(); cloudSave();
+}
+
+function refreshChips(){
+  document.querySelectorAll('.chip').forEach(chip=>{
+    const st=eff(chip.dataset.id);
+    if(st) chip.dataset.status=st; else delete chip.dataset.status;
+    chip.innerHTML=chip.dataset.text+(st?'<span class="tg">'+SYM[st]+'</span>':'');
+  });
+  updateTally(); apply();
+}
+
+function updateTally(){
+  const t={hot:0,weak:0,done:0};
+  document.querySelectorAll('.chip').forEach(c=>{ const s=c.dataset.status; if(s)t[s]++; });
+  document.getElementById('tally').innerHTML =
+    '<span style="color:var(--hot)">◎ <b>'+t.hot+'</b></span>'+
+    '<span style="color:var(--weak)">★ <b>'+t.weak+'</b></span>'+
+    '<span style="color:var(--done)">✓ <b>'+t.done+'</b></span>';
+}
+updateTally();
+
+// ---- 검색 + 필터 ----
+let activeFilter='all', query='';
+document.getElementById('filters').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('#filters button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); activeFilter=b.dataset.f; apply();
+});
+document.getElementById('q').addEventListener('input', e=>{ query=e.target.value.trim().toLowerCase(); apply(); });
+
+function apply(){
+  document.querySelectorAll('.grid').forEach(grid=>{
+    grid.querySelectorAll('.card').forEach(card=>{
+      const title=card.querySelector('.card-title').textContent.toLowerCase();
+      let cardVisible=false;
+      card.querySelectorAll('.chip').forEach(chip=>{
+        const st=chip.dataset.status||'';
+        const okF = activeFilter==='all' ? true : (activeFilter==='none' ? st==='' : st===activeFilter);
+        const okQ = !query || chip.dataset.text.toLowerCase().includes(query) || title.includes(query);
+        const show=okF&&okQ;
+        chip.classList.toggle('hide', !show);
+        if(show) cardVisible=true;
+      });
+      card.classList.toggle('hide', !cardVisible);
+    });
+  });
+  document.querySelectorAll('.part-label').forEach(pl=>{
+    let nx=pl.nextElementSibling, any=false;
+    if(nx && nx.classList.contains('grid')) any=[...nx.querySelectorAll('.card')].some(c=>!c.classList.contains('hide'));
+    pl.classList.toggle('hide', !any);
+  });
+}
+
+// ---- D-day ----
+(function(){
+  const exam=new Date(2027,0,12);
+  const now=new Date(); const t=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const d=Math.round((exam-t)/86400000);
+  document.getElementById('dnum').textContent = d>0?('D-'+d):(d===0?'D-DAY':'D+'+(-d));
+})();
+
+// ---- Firebase 동기화 ----
+let cloudUser=null, cloudRef=null, cloudSet=null, saveTimer=null;
+function setSync(state, msg){
+  const el=document.getElementById('sync');
+  el.className='sync '+state;
+  document.getElementById('syncMsg').textContent=msg;
+}
+function cloudSave(){
+  if(!cloudUser||!cloudRef||!cloudSet) return;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    try{ await cloudSet(cloudRef,{vsmap:store,updated:Date.now()},{merge:true}); setSync('on','동기화됨 · '+(cloudUser.email||'')); }
+    catch(e){ setSync('on','동기화 실패 (재시도됨)'); }
+  },700);
+}
+
+async function initFirebase(){
+  if(firebaseConfig.apiKey.includes('여기에')){ setSync('local','로컬 저장 (이 브라우저)'); return; }
+  let appMod, authMod, fsMod;
+  try{
+    appMod  = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+    authMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    fsMod   = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+  }catch(e){ setSync('local','오프라인 · 로컬 저장'); return; }
+
+  const app=appMod.initializeApp(firebaseConfig);
+  const auth=authMod.getAuth(app);
+  const db=fsMod.getFirestore(app);
+  const provider=new authMod.GoogleAuthProvider();
+  try{ await authMod.setPersistence(auth, authMod.browserLocalPersistence); }catch(e){}
+
+  const btn=document.getElementById('syncBtn');
+  btn.hidden=false; btn.textContent='Google 로그인';
+  btn.onclick=()=>{
+    if(cloudUser){ authMod.signOut(auth); }
+    else{ authMod.signInWithPopup(auth, provider).catch(()=>setSync('off','로그인 취소/실패 · 다시 시도')); }
+  };
+
+  authMod.onAuthStateChanged(auth, async user=>{
+    if(user){
+      cloudUser=user; btn.textContent='로그아웃';
+      setSync('on','동기화 중 · '+(user.email||user.displayName||'로그인됨'));
+      try{
+        cloudRef=fsMod.doc(db,'users',user.uid); cloudSet=fsMod.setDoc;
+        const snap=await fsMod.getDoc(cloudRef);
+        const remote=(snap.exists() && snap.data().vsmap)||{};
+        store=Object.assign({}, store, remote);   // 클라우드 값 우선 병합
+        saveLocal(); refreshChips();
+        cloudSave();                               // 병합 결과 다시 업로드
+      }catch(e){ setSync('on','로그인됨 · 동기화 오류'); }
+    } else {
+      cloudUser=null; cloudRef=null; btn.textContent='Google 로그인';
+      setSync('off','동기화하려면 로그인');
+    }
+  });
+}
+initFirebase();
+</script>
+</body>
+</html>
