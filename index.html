@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>민법 한눈에 맵</title>
+<title>변시 한눈에 맵</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
@@ -48,12 +48,23 @@
     background:var(--card);color:var(--chipink);cursor:pointer;margin-left:auto}
   .sync button:hover{border-color:var(--faint)}
 
-  .legend{font-size:12.5px;color:var(--muted);margin:14px 0 22px;font-weight:300}
+  .legend{font-size:12.5px;color:var(--muted);margin:14px 0 16px;font-weight:300}
   .legend b{font-weight:500;color:var(--chipink)}
+
+  /* 과목 탭 */
+  .subjtabs{display:flex;gap:7px;overflow-x:auto;padding:2px 0 18px;margin-bottom:2px}
+  .subjtabs::-webkit-scrollbar{height:0}
+  .subjtabs button{font-family:inherit;font-size:13.5px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;
+    background:var(--card);color:var(--chipink);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px;transition:.15s;flex:none}
+  .subjtabs button:hover{border-color:var(--faint)}
+  .subjtabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .subjtabs .bdg{font-size:11px;opacity:.55;font-weight:500}
+  .subjtabs button.on .bdg{opacity:.9}
 
   .subj-head{display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:12px;margin-bottom:14px;
     background:var(--accent-bg);border:1px solid var(--accent-line)}
   .subj-head .nm{font-family:"Hahmlet",serif;font-weight:600;font-size:19px;color:var(--accent-dark)}
+  .subj-head .desc{font-size:12px;color:var(--accent-dark);opacity:.7;font-weight:300}
   .subj-head .tally{margin-left:auto;display:flex;gap:12px;font-size:12.5px;color:var(--accent-dark);opacity:.85}
   .subj-head .tally b{font-weight:500}
 
@@ -83,7 +94,7 @@
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>민법 한눈에 맵<span class="sub">로스쿨 민법의 정석 9판 목차 기준 · 채권총론 → 각론 → 민총 → 물권</span></h1>
+      <h1>변시 한눈에 맵<span class="sub">제16회 변호사시험 · 과목별 학습 지도</span></h1>
       <div class="dday"><span class="num" id="dnum">D-…</span><span class="lab">제16회 변시 · 2027.1.12</span></div>
     </div>
   </header>
@@ -91,7 +102,7 @@
   <div class="toolbar">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-      <input id="q" type="text" placeholder="쟁점·조문 검색 (예: 상계, 366, 표현대리)">
+      <input id="q" type="text" placeholder="쟁점·조문 검색 (예: 기판력, 259, 처분권주의)">
     </div>
     <div class="filters" id="filters">
       <button data-f="all" class="on">전체</button>
@@ -103,10 +114,12 @@
     <div class="sync local" id="sync"><span class="pip"></span><span id="syncMsg">로컬 저장 (이 브라우저)</span><button id="syncBtn" hidden></button></div>
   </div>
 
-  <p class="legend">칩을 누르면 <b>◎ 빈출 → ★ 약점 → ✓ 완료 → 없음</b> 순서로 바뀝니다. Firebase 설정을 넣고 로그인하면 기기 간 동기화됩니다.</p>
+  <p class="legend">칩을 누르면 <b>◎ 빈출 → ★ 약점 → ✓ 완료 → 없음</b> 순서로 바뀝니다. 탭 옆 숫자는 <b>완료/전체</b> 쟁점 수입니다.</p>
+
+  <nav class="subjtabs" id="subjtabs"></nav>
 
   <main>
-    <div class="subj-head"><span class="nm">민법</span><span class="tally" id="tally"></span></div>
+    <div class="subj-head"><span class="nm"></span><span class="desc"></span><span class="tally" id="tally"></span></div>
     <div id="map"></div>
   </main>
 
@@ -119,9 +132,7 @@
 <script type="module">
 /* ┌─────────────────────────────────────────────────────────┐
    │  Firebase 설정 (선택)                                      │
-   │  아래 firebaseConfig를 본인 프로젝트 값으로 바꾸면          │
-   │  구글 로그인 → 기기 간 동기화가 켜집니다.                   │
-   │  그대로 두면 이 브라우저에만 저장됩니다.                    │
+   │  로그인하면 기기 간 동기화. 그대로 두면 이 브라우저에만 저장. │
    └─────────────────────────────────────────────────────────┘ */
 const firebaseConfig = {
   apiKey: "AIzaSyCz-QziDKUKmYAIlXigd3GlTaM_oyzj2dQ",
@@ -137,8 +148,15 @@ const firebaseConfig = {
 const S = ['','hot','weak','done'];
 const SYM = {hot:'◎', weak:'★', done:'✓'};
 
-// 민법 데이터 (chip: "텍스트" 또는 ["텍스트","hot"|"weak"|"done"])
-const GROUPS = [
+/* ┌─ 과목 추가 방법 ─────────────────────────────────────────┐
+   │  SUBJECTS 배열에 { key, name, sub, groups:[...] } 한 개를  │
+   │  추가하면 탭이 자동 생성됩니다. key 는 영문 고유값(중복금지).│
+   │  chip 은 "텍스트" 또는 ["텍스트","hot"|"weak"|"done"].      │
+   └──────────────────────────────────────────────────────────┘ */
+const SUBJECTS = [
+
+/* ===== 민법 (기존 데이터 그대로 · 진도 보존) ===== */
+{key:'civ', name:'민법', sub:'로민정 9판 · 채총 → 각론 → 민총 → 물권', groups:[
  {part:'Part 1 · 채권총론', cards:[
    {t:'서설 · 채권의 목적', c:['특정물채권','종류채권','선택채권','이자채권']},
    {t:'채무불이행', c:['이행지체','이행불능',['대상청구권','hot'],'이행거절','불완전이행','이행보조자(391)']},
@@ -182,46 +200,411 @@ const GROUPS = [
    {t:'담보물권', c:['유치권','질권','저당권·물상대위(370·342)','근저당','공동저당(368)']},
    {t:'비전형담보', c:['가등기담보법','양도담보','동산·채권담보권']},
  ]},
-];
+]},
 
-// ---- 로컬 저장 ----
+/* ===== 민사소송법 (정연석 The Basic 2026 목차 기준) ===== */
+{key:'civp', name:'민사소송법', sub:'정연석 The Basic · 총론 → 제1심 → 종료 → 병합 → 상소', groups:[
+ {part:'PART 1 · 총론 · 소송의 주체', cards:[
+   {t:'신의성실의 원칙', c:['소송형태 부당형성','선행행위와 모순거동','소권의 실효','소권의 남용']},
+   {t:'법원 — 재판권 · 관할', c:['재판권(인적·물적)','국제재판관할권','사물관할','토지관할','합의관할(29)','변론관할(30)']},
+   {t:'이송 · 제척기피회피', c:['관할위반 이송(34①)','심판편의 이송(35)','이송의 효과(38·40①)','제척(41)','기피(43)','회피(49)']},
+   {t:'당사자의 확정', tag:'hot', c:[['당사자표시정정','hot'],'성명모용소송','법인격부인']},
+   {t:'사망자를 당사자로 한 소송', tag:'hot', c:['소제기 전 사망','계속 뒤 변론종결 전 사망','변론종결 후 송달 전 사망','판결정본 송달 후 사망']},
+   {t:'당사자능력 · 당사자적격', tag:'hot', c:['당사자능력','비법인사단','조합의 소송수행',['당사자적격','hot'],'추심명령과 채무자 적격(전합)','제3자 소송담당']},
+   {t:'소송능력 · 변론능력', c:['소송능력','보정·추인','변론능력']},
+   {t:'소송상 대리인', c:['법정대리인','특별대리인(62)','대리권 소멸통지(63)','대표자(64)','소송대리인(87)','대리권 범위','무권대리·표현대리','쌍방대리 금지','변호사대리원칙']},
+ ]},
+ {part:'PART 2 · 제1심 ① 소송의 개시', cards:[
+   {t:'소송요건 총설', c:['소송요건 의의','조사 개시·방법','심리 선순위성','흠결의 효과']},
+   {t:'공통적 소의 이익 (권리보호자격)', c:['구체적 권리·법률관계','소제기 금지사유 부존재','특별구제절차 부존재','승소확정판결 부존재','신의칙 위반 아닐 것']},
+   {t:'이행의 소 · 장래이행의 소', c:['강제집행 곤란','목적 실현·실익 없는 경우','일부청구','장래이행의 소']},
+   {t:'확인의 소', tag:'hot', c:['청구적격(대상적격)',['확인의 이익','hot'],'증서진정 확인의 소(250)']},
+   {t:'형성의 소', c:['형성의 소·장래이행 병합','사해행위취소소송의 소익']},
+   {t:'소송물', tag:'hot', c:[['구·신소송물이론','hot'],'구이론 판례','일부청구']},
+   {t:'소의 제기 · 소제기 후 조치', c:['소장 필수적 기재(249①)','재판장 소장심사','답변서 제출(256①)','무변론판결(257)']},
+   {t:'중복소송금지(259)', tag:'hot', c:['취지','요건(당사자·청구 동일)','효과','국제적 중복소송']},
+   {t:'소제기의 실체법상 효력', c:['소멸시효 중단·기간준수','지연손해 인상']},
+ ]},
+ {part:'PART 2 · 제1심 ② 변론', cards:[
+   {t:'처분권주의', tag:'hot', c:[['처분권주의','hot'],'채무부존재확인청구','일부청구와 과실상계','단순→상환이행판결','현재→장래이행판결','위반의 효과']},
+   {t:'변론주의', tag:'hot', c:[['사실의 주장책임','hot'],['자백의 구속력','hot'],'한계·보완·수정','예외(직권탐지·직권조사사항)']},
+   {t:'석명 · 적시제출 · 이의권', c:['석명권','석명의 범위','적시제출주의','실기한 공방 각하(149①)','직권진행·소송지휘','이의권(151)']},
+   {t:'주장과 항변', c:['주장','항변','부인과 항변','재항변','소송상 형성권 행사']},
+   {t:'소송상 합의 · 소송행위', c:['소송상 합의 법적성질','민법규정 적용 가부','소송행위 철회','민법규정 유추적용']},
+   {t:'변론준비 · 기일 · 송달', c:['변론준비절차','준비서면','변론조서','양쪽 불출석(268)','한쪽 불출석(148)','추후보완(173)','송달(교부·발송·공시)','송달 하자·치유']},
+   {t:'소송절차의 정지', c:['중단사유','중단의 예외(238)','수계','중단의 효과']},
+ ]},
+ {part:'PART 2 · 제1심 ③ 증거', cards:[
+   {t:'재판상 자백 · 불요증사실', tag:'hot', c:[['재판상 자백 요건','hot'],'주요사실 대상','자백의 효력(288)','자백간주(150)','현저한 사실']},
+   {t:'증거조사', c:['유일한 증거','직권증거조사(292)','증인신문','감정','당사자신문(367)','증거보전(375)']},
+   {t:'서증', c:['문서의 종류','형식적 증거력(진정성립)','실질적 증거력','서증신청 방법']},
+   {t:'자유심증 · 증명책임', tag:'hot', c:['자유심증주의','증거공통의 원칙','증명방해',['증명책임 분배','hot'],'법률상 추정','일응의 추정']},
+ ]},
+ {part:'PART 3 · 소송의 종료', cards:[
+   {t:'소송종료선언 · 취하', c:['소송종료선언','취하 요건·방식(266)','취하의 효과','취하간주','취하 효력 다투는 절차']},
+   {t:'재소금지(267②)', tag:'hot', c:['취지','요건(동일소송물·권리보호이익)','효과']},
+   {t:'청구의 포기 · 인낙', c:['법적 성질','요건','시기·방식','효과','효력 다투는 방법']},
+   {t:'재판상 화해', tag:'hot', c:['소송상 화해 법적성질','요건','조건부 화해',['화해의 기판력','hot'],'효력 다투는 방법','화해권고결정(225~232)','제소전 화해(385~389)']},
+   {t:'기판력 서설 · 작용국면', tag:'hot', c:['작용국면(동일·선결·모순)','기판력의 본질']},
+   {t:'기판력의 시적 범위', tag:'hot', c:[['차단효·변론종결 후 새사유','hot'],['표준시 뒤 형성권 행사','hot'],'선결관계와 표준시','정기금판결 변경의 소(252)']},
+   {t:'기판력의 객관적 범위', tag:'hot', c:['판결이유 중 판단(원칙 부정)',['상계항변의 기판력','hot']]},
+   {t:'기판력의 주관적 범위', tag:'hot', c:[['변론종결 후 승계인(218①)','hot'],'청구목적물 소지인','제3자소송담당 귀속주체','채권자취소소송과 기판력','소송탈퇴자']},
+   {t:'판결', c:['일부판결·잔부판결','재판누락·추가판결','판결의 확정시기','판결의 무효','판결의 편취']},
+ ]},
+ {part:'PART 4 · 병합소송', cards:[
+   {t:'청구의 병합', c:['모습(단순·선택·예비)','병합요건','절차·심판']},
+   {t:'청구의 변경', tag:'hot', c:['교환적·추가적 변경',['청구기초의 동일성','hot'],'현저 지연 않을 것','청구취지 확장·항소이익']},
+   {t:'반소 · 중간확인의 소', c:['반소의 요건','예비적 반소','반소의 심판','중간확인의 소']},
+   {t:'공동소송', tag:'hot', c:['일반요건(65)','통상공동소송(66)',['고유필수적 공동소송','hot'],'유사필수적 공동소송','필수적 공동소송 심판','예비적·선택적(70)','추가적 공동소송']},
+   {t:'선정당사자', c:['요건','선정 방법·절차','선정당사자·선정자 지위']},
+   {t:'보조참가', tag:'hot', c:['요건(71)','참가이유','절차·재판(72~75)','참가인의 지위(76)','참가적 효력(77)']},
+   {t:'공동소송적 보조참가 · 참가 · 고지', c:['공동소송적 보조참가','공동소송참가','소송고지']},
+   {t:'독립당사자참가', tag:'hot', c:['요건(79)',['권리주장참가(79①전단)','hot'],'사해방지참가(79①후단)','심판(62·72 준용)']},
+   {t:'임의적 당사자변경 · 소송승계', c:['피고의 경정(260)','필수적공동소송인 추가(68)','당연승계','특정승계(소송물 양도)','참가·인수승계','소송탈퇴(80·82③)']},
+ ]},
+ {part:'PART 5 · 상소 · 재심', cards:[
+   {t:'상소 일반', c:['상소요건','상소권포기·불상소합의','상소이익','상소불가분 원칙']},
+   {t:'항소', tag:'hot', c:['항소 일반','항소취하','부대항소',['불이익변경금지(415)','hot'],'항소심 종국재판']},
+   {t:'상고', c:['상고이유','상고이유서 제출','부대상고','파기환송 후 심리','파기환송판결 기속력','심리불속행']},
+   {t:'재심', tag:'hot', c:['적법요건',['재심사유(451)','hot'],'재심사유의 보충성','재심기간']},
+ ]},
+]},
+
+/* ===== 상법 (공태용 상법의 맥 암기장 2027 목차 기준 · 176 Set) ===== */
+{key:'com', name:'상법', sub:'공태용 상법의 맥 · 총칙 → 상행위 → 회사법 → 보험 → 어음수표', groups:[
+ {part:'제1편 · 상법총칙', cards:[
+   {t:'상인 · 상업사용인', tag:'hot', c:['상인(당연·의제)','상업사용인','지배인·표현지배인','부분적 포괄대리권 사용인']},
+   {t:'상호 · 상업등기', c:['상호','상호권',['명의대여자 책임','hot'],'상업등기']},
+   {t:'영업양도', tag:'hot', c:['영업양도의 의의','경업금지의무',['상호속용 영업양수인의 책임','hot']]},
+ ]},
+ {part:'제2편 · 상행위', cards:[
+   {t:'상행위 통칙', tag:'hot', c:['상행위의 분류','상행위의 대리','상사시효',['일반상사유치권','hot'],'유질계약','민법 채권에 대한 특칙','상사매매']},
+   {t:'상호계산 · 조합', c:['상호계산','익명조합','합자조합']},
+   {t:'각종 상행위', c:['대리상','중개업','위탁매매업','운송주선업','운송업','공중접객업','창고업','금융리스업','가맹업']},
+ ]},
+ {part:'제3편 · 회사법 — 통칙 · 설립', cards:[
+   {t:'회사 통칙', tag:'hot', c:[['법인격부인','hot'],'회사의 종류와 권리능력','조직변경·해산·계속·해산명령·설립무효취소']},
+   {t:'설립', c:['주식회사의 설립','변태설립사항','가장납입','설립 중의 회사','발기인 등의 책임']},
+ ]},
+ {part:'제3편 · 회사법 — 주식 · 주주', cards:[
+   {t:'주식 · 주주', c:['주식','주주평등원칙','종류주식','주식담보','주식 병합·분할·소각·자본감소','주권']},
+   {t:'주식의 양도', tag:'hot', c:[['주식양도','hot'],'정관에 의한 양도제한','주권발행 전 양도','자기주식취득','모회사 주식취득금지','지배주주의 소수주식 전부취득','주주명부·명의개서']},
+ ]},
+ {part:'제3편 · 회사법 — 주주총회', cards:[
+   {t:'주주총회 운영', c:['소수주주 총회소집청구권','소집절차','전자주주총회','주주제안','주주의결권','상호주']},
+   {t:'의결권 행사', c:['특별이해관계인','감사·감사위원 선임해임시 의결권 제한','의결권 불통일행사','의결권 대리행사','서면·전자투표·이익공여금지']},
+   {t:'총회결의 · 특별결의', tag:'hot', c:['주주총회결의','영업양도와 특별결의','반대주주 주식매수청구권']},
+   {t:'결의하자 소송', tag:'hot', c:[['결의하자 사유','hot'],'소송의 당사자','기타 소송법적 쟁점']},
+ ]},
+ {part:'제3편 · 회사법 — 이사 · 이사회', cards:[
+   {t:'이사', c:['이사의 선임','집중투표','이사의 해임','퇴임이사·일시이사','직무집행정지·직무대행자','이사보수','주식매수선택권']},
+   {t:'이사회', c:['이사회의 권한','이사회의 소집','이사회결의','위원회']},
+   {t:'대표이사', tag:'hot', c:['대표이사','공동대표이사',['전단적 대표행위','hot'],'대표권남용',['표현대표이사','hot'],'집행임원']},
+   {t:'이사의 의무', tag:'hot', c:['선관의무','감시의무','경업금지의무',['자기거래금지의무','hot'],'회사기회유용금지의무']},
+   {t:'이사의 책임 · 주주의 감독', tag:'hot', c:[['회사에 대한 손해배상책임','hot'],['제3자에 대한 손해배상책임','hot'],'업무집행지시자 책임','소수주주권','회계장부열람등사권','위법행위유지청구권',['대표소송','hot']]},
+ ]},
+ {part:'제3편 · 회사법 — 감사 · 자본 · 재편', cards:[
+   {t:'감사 · 상장회사 특례', c:['감사','감사위원회','상장회사 특례']},
+   {t:'신주발행 · 사채', tag:'hot', c:['신주발행','추상적 신주인수권','구체적 신주인수권','신주발행유지청구권',['신주발행무효의 소','hot'],'사채','전환사채','신주인수권부사채']},
+   {t:'계산 · 배당', c:['재무제표와 준비금','이익배당','현물·주식배당','중간배당','위법배당']},
+   {t:'합병 · 분할 · 조직재편', c:['합병의 의의·절차','합병비율','합병의 유형','합병무효의 소','주식의 포괄적 교환','주식의 포괄적 이전','회사분할']},
+   {t:'기타 회사', c:['합명회사','합자회사','유한책임회사','유한회사']},
+ ]},
+ {part:'제4편 · 보험법', cards:[
+   {t:'보험계약 총론', tag:'hot', c:['보험계약의 의의·개념요소','보험계약 관련자','낙부통지의무·승낙 전 보험사고','보험약관 교부·설명의무',['고지의무','hot']]},
+   {t:'보험계약의 효과', c:['보험료 지급의무','위험변경증가 통지의무','보험금 지급의무·보험료 반환','타인을 위한 보험계약']},
+   {t:'손해보험', tag:'hot', c:['보험가액과 보험금액','중복보험','손해방지 경감의무',['보험자대위','hot'],'책임보험','방어비용','제3자의 직접청구권']},
+   {t:'인보험', c:['인보험의 의의','보험수익자 지정·변경','타인의 생명보험','면책사유','단체보험']},
+ ]},
+ {part:'제5편 · 어음 · 수표법', cards:[
+   {t:'어음행위', c:['어음행위독립의 원칙','기명날인·서명','법인·조합의 어음행위','어음행위의 대리','어음행위의 표현대리','어음위조','어음변조']},
+   {t:'어음항변', tag:'hot', c:['어음의 실질관계',['어음법 제17조의 항변','hot'],'기타 어음항변','융통어음의 항변','제3자의 항변','이중무권의 항변']},
+   {t:'어음요건 · 종류', c:['필수적 기재사항','어음의 만기','백지어음','환어음의 인수']},
+   {t:'보증 · 배서', tag:'hot', c:['어음보증','권리이전과 배서','배서 방식과 효력','배서의 연속','무담보·배서금지·환배서','기한후배서','추심위임배서','입질배서',['선의취득','hot']]},
+   {t:'지급 · 소멸 · 수표', c:['지급제시','지급','상환청구','어음 제권판결','권리의 소멸·소멸시효','이득상환청구권','수표']},
+ ]},
+]},
+
+/* ===== 헌법 (류정모 진리 헌법 암기장 2026 목차 기준 · ☆☆☆=빈출) ===== */
+{key:'con', name:'헌법', sub:'류정모 진리 헌법 · 총론 → 기본권 → 통치구조 → 헌법재판 → 기록형', groups:[
+ {part:'제1편 · 헌법 총론', cards:[
+   {t:'헌법의 의의', c:['관습헌법','합헌적 법률해석','헌법의 개정','저항권']},
+   {t:'헌법의 기본원리', c:['헌법 전문','국민주권원리','민주주의원리','법치주의원리','사회국가원리','평화국가원리·조약','문화국가원리']},
+   {t:'기본제도', c:['선거제도','정당제도','지방자치제도','직업공무원제도']},
+ ]},
+ {part:'제2편 · 기본권 — 일반·존엄·평등', cards:[
+   {t:'기본권의 주체', tag:'hot', c:['태아','외국인',['법인','hot']]},
+   {t:'기본권의 효력', tag:'hot', c:['대사인효','기본권 보호의무','기본권의 충돌',['기본권의 경합','hot']]},
+   {t:'기본권의 제한', tag:'hot', c:['법률유보의 원칙',['명확성 원칙','hot'],['포괄위임금지','hot'],['소급입법금지','hot'],['신뢰보호원칙','hot'],['과잉금지원칙','hot']]},
+   {t:'인간의 존엄 · 행복추구권', tag:'hot', c:['인간의 존엄과 가치','일반적 인격권',['일반적 행동자유권','hot'],'자기결정권']},
+   {t:'평등권', tag:'hot', c:[['평등권 심사기준(비례·자의)','hot'],'차별취급의 존재','적극적 평등실현조치']},
+ ]},
+ {part:'제2편 · 기본권 — 자유권', cards:[
+   {t:'생명권 · 신체의 자유', tag:'hot', c:['생명권',['신체의 자유','hot'],['적법절차의 원칙','hot'],'죄형법정주의','형벌불소급','책임주의','책임·형벌 비례','이중처벌금지','영장주의','진술거부권','변호인의 조력','무죄추정','연좌제 금지']},
+   {t:'정신적 자유', tag:'hot', c:['양심의 자유','종교의 자유(정교분리)',['표현의 자유','hot'],'알 권리','언론출판의 한계','집회·결사의 자유','학문·예술의 자유']},
+   {t:'사생활 · 정보 관련 자유', tag:'hot', c:['사생활의 비밀과 자유',['개인정보자기결정권','hot'],'주거의 자유','통신의 자유','거주·이전의 자유']},
+   {t:'경제적 자유', tag:'hot', c:[['직업의 자유(단계이론)','hot'],['재산권 제한','hot'],'공용침해','재산권제한·공용침해 구분','특별부담금']},
+ ]},
+ {part:'제2편 · 기본권 — 참정·청구·사회권·의무', cards:[
+   {t:'참정권', c:['정치적 표현의 자유','선거권','공무담임권','국민투표권']},
+   {t:'청구권', c:['재판청구권','법관에 의한 재판','국가배상청구권(이중배상금지)','형사보상청구권','범죄피해자구조청구권','청원권']},
+   {t:'사회적 기본권', c:['인간다운 생활을 할 권리','교육을 받을 권리','근로의 권리','근로3권','환경권','혼인과 가족생활의 보장']},
+   {t:'국민의 기본의무', c:['납세의무','국방의무','의무교육을 받게 할 의무','근로의무']},
+ ]},
+ {part:'제3편 · 통치구조론', cards:[
+   {t:'국가작용의 원리', tag:'hot', c:['권력분립원칙','대의제','자유위임의 원칙']},
+   {t:'국회', tag:'hot', c:['국회의 구성','의사공개·다수결','국정감사·조사권','해임건의권','자율권',['국회의원 심의·표결권','hot'],'불체포특권','면책특권']},
+   {t:'정부', c:['대통령의 지위','권한대행','불소추특권','위임입법','법률안 거부권','부서제도','국무총리·국무위원','감사원','선거관리위원회']},
+   {t:'법원', c:['구체적 규범통제','법원의 독립','법관의 신분보장','재판의 독립']},
+ ]},
+ {part:'제4편 · 헌법재판론', cards:[
+   {t:'헌법재판 총론', c:['헌법재판의 종류','가처분','일사부재리','기속력']},
+   {t:'위헌법률심판', tag:'hot', c:[['적법요건','hot'],'심판대상','법원의 제청',['재판의 전제성','hot'],'위헌결정의 시간적 효력',['한정위헌·한정합헌','hot'],'헌법불합치결정']},
+   {t:'위헌심사형 헌법소원', tag:'hot', c:[['적법요건','hot'],'심판대상','제청신청 기각결정',['재판의 전제성','hot'],'청구기간','변호사강제주의']},
+   {t:'권리구제형 헌법소원', tag:'hot', c:[['적법요건','hot'],['공권력의 행사·불행사','hot'],'기본권 침해 가능성',['법적관련성(자기·현재·직접)','hot'],['보충성','hot'],['권리보호이익','hot'],['청구기간','hot']]},
+   {t:'기타 심판', tag:'hot', c:[['권한쟁의심판 요건','hot'],'당사자능력·적격','처분·부작위','탄핵심판','정당해산심판']},
+ ]},
+ {part:'제5편 · 헌법 기록형', cards:[
+   {t:'위헌법률심판제청신청서', c:['형식적 기재사항','신청취지','쟁점의 정리','재판의 전제성','위헌성(법치국가)','위헌성(위임입법)','위헌성(과잉금지)','위헌성(평등권)','개별 헌법원칙']},
+   {t:'헌법소원청구서 (위헌심사형)', c:['청구취지','당해사건','위헌 해석 조항','적법성(전제성·청구기간)','위헌성']},
+   {t:'헌법소원청구서 (권리구제형)', c:['청구취지','침해된 권리','침해의 원인','적법요건(법적관련성·보충성·청구기간)','위헌성']},
+   {t:'가처분신청서', c:['신청취지','신청이유']},
+ ]},
+]},
+
+/* ===== 행정법 (류정모 진리 행정법 암기장 2026 목차 기준 · ☆☆☆=빈출) ===== */
+{key:'adm', name:'행정법', sub:'류정모 진리 행정법 · 총론 → 작용 → 절차 → 실효성 → 구제 → 각론 → 기록형', groups:[
+ {part:'제1편 · 행정법 총론', cards:[
+   {t:'행정법의 일반원칙', tag:'hot', c:['통치행위','법치행정의 원칙','평등의 원칙','자기구속의 원칙',['비례의 원칙','hot'],'신뢰보호의 원칙','부당결부금지의 원칙']},
+   {t:'행정상 법률관계', c:['행정주체·공무수탁사인','제재사유·제재효과의 승계','특별권력관계']},
+   {t:'사인의 공법행위', c:['신고의 유형·구별기준','신고의 요건','수리의 기속행위성','수리의 처분성','신고 하자와 후속 행정행위']},
+ ]},
+ {part:'제2편 · 행정작용법', cards:[
+   {t:'재량 · 판단여지', tag:'hot', c:[['기속·재량의 구별','hot'],['재량의 한계(일탈·남용)','hot'],'불확정개념·판단여지']},
+   {t:'행정행위의 종류', tag:'hot', c:['하명','허가','면제','특허','인가',['인허가의제','hot'],'준법률행위적 행정행위']},
+   {t:'부관', tag:'hot', c:[['부관의 의의·종류','hot'],['부관의 가능성·한계','hot'],'부관의 독립쟁송','부관의 독립취소']},
+   {t:'행정행위의 효력 · 하자', tag:'hot', c:[['공정력(구성요건적 효력)','hot'],'불가쟁력',['무효와 취소','hot'],'위헌법률에 근거한 행정행위','하자의 치유',['하자의 승계','hot'],'취소·철회']},
+   {t:'행정입법', tag:'hot', c:['위임명령 제정범위·한계','법규명령 사법적 통제','행정규칙의 효력','법규명령형식 행정규칙',['행정규칙형식 법규명령','hot']]},
+   {t:'그 밖의 행위형식', tag:'hot', c:['확약',['행정계획(계획재량·형량명령)','hot'],'공법상 계약','행정상 사실행위','행정지도']},
+ ]},
+ {part:'제3편 · 행정절차 · 행정정보', cards:[
+   {t:'행정절차', tag:'hot', c:[['절차법 적용범위','hot'],'처분의 신청·방식',['처분의 사전통지','hot'],['의견청취','hot'],'처분의 이유제시','처분기준 설정·공표']},
+   {t:'절차하자 · 행정조사', c:['절차상 하자의 독자적 위법성','행정조사','위법한 조사에 기한 처분의 효력']},
+   {t:'정보공개', tag:'hot', c:['정보공개청구권자·의무기관',['정보공개법 기본원칙','hot'],'비공개사유(9①)','권리남용','부분공개','제3자 의견청취']},
+ ]},
+ {part:'제4편 · 행정의 실효성확보', cards:[
+   {t:'행정상 강제', c:['행정대집행','이행강제금','직접강제','강제징수']},
+   {t:'즉시강제 · 행정벌', c:['행정상 즉시강제','행정벌과 제재적 처분의 관계']},
+   {t:'새로운 실효성확보수단', c:['과징금','법위반사실의 공표(처분성)']},
+ ]},
+ {part:'제5편 · 행정구제법 — 국가책임', cards:[
+   {t:'국가배상', tag:'hot', c:[['배상책임의 요건(2조)','hot'],'군인·군무원 특례(이중배상금지)','배상책임의 주체','공무원의 배상책임','영조물 설치·관리 하자(5조)']},
+   {t:'손실보상', c:['손실보상의 의의','희생보상청구권']},
+ ]},
+ {part:'제5편 · 행정구제법 — 행정소송', cards:[
+   {t:'행정소송의 종류', c:['항고소송','당사자소송','민중소송','기관소송','법정외 항고소송']},
+   {t:'취소소송 소송요건', tag:'hot', c:['재판관할',['원고적격','hot'],['협의의 소익','hot'],'피고적격','행정심판의 전치',['대상적격(처분성)','hot'],'제소기간']},
+   {t:'취소소송 당사자 · 제기', tag:'hot', c:['당사자능력','피고경정','소송참가','소송의 병합','소의 변경',['임시구제(집행정지)','hot']]},
+   {t:'취소소송 심리 · 판결', tag:'hot', c:['직권심리주의','심리판단의 기준시',['처분사유의 추가·변경','hot'],'판결의 종류',['기판력','hot'],['기속력','hot'],'간접강제']},
+   {t:'기타 항고 · 당사자소송', tag:'hot', c:['무효등 확인소송','부작위위법확인소송',['항고소송과 당사자소송의 구별','hot'],'피고적격']},
+ ]},
+ {part:'제5편 · 행정구제법 — 행정심판', cards:[
+   {t:'행정심판', tag:'hot', c:['취소심판','무효등 확인심판',['의무이행심판','hot'],'고지제도',['행정심판 임시구제','hot'],'재결의 종류','인용재결의 기속력','재처분의무 불이행 권리구제']},
+ ]},
+ {part:'제6편 · 행정법 각론', cards:[
+   {t:'행정조직법', c:['권한의 위임·위탁','재위임','내부위임']},
+   {t:'지방자치법', tag:'hot', c:['관할구역','주민의 감사청구','주민소송',['지방자치단체의 사무와 배분','hot'],['조례제정권','hot'],'조례안 재의·제소','자주재정권',['명령·처분의 시정명령','hot'],'직무이행명령·대집행','자치사무 감사']},
+   {t:'공무원법', c:['직위해제','복종의무','비밀엄수·품위유지','임용결격·당연퇴직','퇴직급여 제한']},
+   {t:'개별행정법', c:['공물법(성립·소멸·사용관계)','공용수용(절차·손실보상)','공용환권(조합설립인가·사업시행계획·관리처분계획)']},
+ ]},
+ {part:'제7편 · 행정법 기록형', cards:[
+   {t:'소장 (취소소송)', tag:'hot', c:['형식적 기재(원고·피고·사건명)','청구취지','처분의 경위','소의 적법성(원고적격·대상적격·소익·전치·제소기간)',['처분의 위법성(절차·실체·근거법령)','hot'],'청구병합(국가배상)','예비적 청구(공용수용)']},
+   {t:'집행정지신청서', c:['신청취지','회복하기 어려운 손해','긴급한 필요','공공복리 영향 우려']},
+   {t:'행정심판청구서', c:['청구취지','청구기간','위법·부당성','작성일']},
+ ]},
+]},
+
+/* ===== 형법 (김기용 COMPACT 형법·특별형법 제4판 목차 기준) ===== */
+{key:'crim', name:'형법', sub:'김기용 COMPACT · 총론 → 개인적법익 → 사회·국가적법익 → 특별형법', groups:[
+ {part:'제1편 · 형법총론', cards:[
+   {t:'형법의 일반이론', c:['죄형법정주의','시간적 적용범위','장소적 적용범위','법인의 형사책임']},
+   {t:'구성요건론', tag:'hot', c:['행위·결과반가치',['인과관계와 객관적 귀속','hot'],'규범보호목적·합법적대체행위','인과관계 판례','고의 일반','고의와 착오(부합설)','개괄적 고의·과실','과실범 일반','과실범 공동정범·동시범','교통사고와 운전자·동승자 책임','결과적 가중범','부진정결과적가중범','부작위범 일반',['부진정부작위범','hot'],'작위정범에 부작위 가담']},
+   {t:'위법성론', tag:'hot', c:[['정당방위','hot'],'싸움과 정당방위','우연방위·우연피난','긴급피난','자구행위','피해자의 승낙','정당행위(20)']},
+   {t:'책임론', tag:'hot', c:['책임의 근거','심신상실·심신미약','원인에 있어서 자유로운 행위','법률의 착오',['위전착(오상방위)','hot'],'기대가능성']},
+   {t:'미수론', c:['장애미수','중지미수','불능미수','예비의 쟁점']},
+   {t:'공범론', tag:'hot', c:['정범과 공범','필요적 공범','공동정범 일반',['공모공동정범·공모관계 이탈','hot'],'승계적 공동정범·방조','합동범과 공동범','구성요건해당성 없는 도구','위법성·책임 없는 도구','정범배후의 정범','교사범','방조범','공범의 착오',['공범과 신분(33)','hot'],'기타 신분']},
+   {t:'죄수론', c:['법조경합·포괄일죄·상상적경합','경합범(37)']},
+   {t:'형벌론', c:['몰수','추징','형벌론 기타','법률상 가중·감경과 작량감경','자수·자복·외국형 산입','누범','선고유예','집행유예']},
+ ]},
+ {part:'제2편 · 개인적 법익', cards:[
+   {t:'생명과 신체', c:['사람의 시기·종기','상습범','업무상과실치사상','흉기·위험한 물건','상해의 개념','독립행위경합·상해동시범 특례','폭행의 개념','유기죄·학대죄']},
+   {t:'자유에 관한 죄', c:['협박죄','강요죄','체포·감금죄','약취·유인죄']},
+   {t:'강간과 추행(성범죄)', c:['강간·유사강간','강제추행','준강간·준강제추행','성폭법 주거침입강간','위계 등 간음','촬영물이용범죄','아동·청소년성착취물']},
+   {t:'명예·업무·주거', tag:'hot', c:[['명예훼손죄','hot'],'출판물·정통망법','형법 §310 위법성조각','모욕죄','업무방해죄','컴퓨터등장애업무방해','신용훼손','경매·입찰방해','비밀침해·업무상비밀누설','주거침입죄','퇴거불응죄']},
+   {t:'절도와 강도', tag:'hot', c:['금제품의 재물성','재물의 개념·정보의 재물성','절도죄 일반','유실물의 점유','사자의 점유','야간주거침입절도·특수절도','준강도죄','강도죄·특수강도','강도상해·치상·살인·치사','강도강간','절도·강도 죄수']},
+   {t:'사기와 공갈', tag:'hot', c:[['사기죄 일반','hot'],'불법원인급여와 사기','부작위에 의한 사기','보험사기','사기와 책략절도','도구이용 사기','소송사기','공갈죄','컴퓨터등사용사기','초과인출','신용·직불·현금카드 범죄']},
+   {t:'횡령과 배임', tag:'hot', c:[['횡령죄 일반','hot'],'불법원인급여와 횡령','위탁매매와 횡령','착오송금과 횡령','보이스피싱','용도특정 위탁금전','명의신탁과 횡령','횡령죄 죄수',['배임죄 일반','hot'],'배임의 거래상대방','대표권남용과 배임','영업상 주요자산 업무상배임','이중매매(성립)','이중매매(불성립)','동산양도담보','특경법 이득액','배임수증재']},
+   {t:'기타 재산범죄', c:['장물죄 일반','장물(절도·강도·공갈·사기 취득)','장물의 처분','재물손괴죄','자동차 대내·대외 소유관계','권리행사방해죄','강제집행면탈죄']},
+ ]},
+ {part:'제3편 · 사회적·국가적 법익', cards:[
+   {t:'사회적 법익', tag:'hot', c:[['문서죄 기본법리','hot'],'법인 명의 문서작성','공·사전자기록 위작·변작','허위공문서·허위진단서작성','위조문서 행사죄','공정증서원본불실기재','공·사문서부정행사','사서명위조·동행사','공기호','통화·유가증권·수표위조','방화죄','도박죄·사기도박','기타 사회적 법익']},
+   {t:'국가적 법익 — 공무원 범죄', tag:'hot', c:['직무유기죄','부작위 직무유기와 작위범 관계','공무상비밀누설','직권남용권리행사방해',['뇌물죄 일반','hot'],'특가법(뇌물)','뇌물수수·제3자뇌물수수','뇌물공여·증뢰물전달','사전·사후수뢰·수뢰후부정처사','알선뇌물수수','뇌물죄 죄수']},
+   {t:'국가적 법익 — 공무방해', tag:'hot', c:['공무집행방해죄','위계공무집행방해','범인도피죄','증거인멸·증인도피','증거위조·변조','위증죄','공동피고인 증인적격·증언거부권',['무고죄','hot'],'승낙무고·자기무고','국가적 법익 기타']},
+ ]},
+ {part:'특별형법 · 도로·교통', cards:[
+   {t:'운전 관련 범죄', c:['도로·교통 죄수관계','무면허운전','음주운전','음주측정거부','기타 도교법위반']},
+   {t:'교통사고 관련 범죄', tag:'hot', c:['교특법 소추조건 특례','업무상과실 재물손괴 도교법','교특법위반(치상·치사)','각호 단서 해당여부',['특가법(위험운전치사상)','hot'],'특가법(어린이보호구역)','특가법(운전자폭행)']},
+   {t:'사고 후 조치 관련', tag:'hot', c:['사고후미신고(54②)','주정차 손괴 후 미제공','사고후미조치',['특가법 도주차량','hot'],'도주차량 구호조치의무']},
+ ]},
+ {part:'특별형법 · 성폭법·아청법', cards:[
+   {t:'성폭법 위반', c:['특수강간','주거침입·절도+강간','특수강도강간','친족관계 강간','장애인강간','13세미만 미성년자강간','강간등 상해·치상·살인·치사','카메라등 이용촬영','통신매체이용음란','업무상위력추행','공중밀집장소추행','비밀준수']},
+   {t:'아청법 · 특례규정', c:['아청법위반(강간)','아동·청소년성착취물','기타 아청법','영상녹화물 특례','신분비공개·위장수사','공소시효 특례','변호사선임 특례','증거보전 특례']},
+ ]},
+ {part:'특별형법 · 폭처법·특가법·특경법', cards:[
+   {t:'폭처법', c:['공동폭행','폭행재범·특수폭행재범','단체등 구성·활동','우범자','정당방위 특칙']},
+   {t:'특가법', c:['절도·강도·장물','보복폭행','국고등손실','13세미만 약취·유인','무고']},
+   {t:'특경법', tag:'hot', c:[['사기·공갈·횡령·배임(이득액)','hot'],'근저당권 관련 이득액','재산국외도피']},
+   {t:'뇌물·알선 특별법', c:['특가법(뇌물) 가중처벌','특경법(수재)','알선 관련 특별법령']},
+ ]},
+ {part:'특별형법 · 부수법·여전법·정통망법·통비법', cards:[
+   {t:'부정수표단속법', c:['허위신고','부도 후 수표발행','수표발행 후 부도','수표 위조·변조']},
+   {t:'여신전문금융업법', c:['위조·변조 여전법','신용·직불카드 부정사용','자금융통']},
+   {t:'정보통신망법', c:['명예훼손','공포심 문언반복도달','음란물유포','정보통신망 침입','비밀침해·누설']},
+   {t:'통신비밀보호법', c:['타인간 대화 녹음·청취','전기통신 감청','통신사실확인자료','누설과 정당행위','통신제한조치','전기통신사업법']},
+ ]},
+]},
+
+/* ===== 형사소송법 (김기용 COMPACT 반반형소+ 2026 목차 기준 · 135쟁점) ===== */
+{key:'crimp', name:'형사소송법', sub:'김기용 COMPACT 반반형소+ · 서론 → 수사·공소 → 공판 → 상소·특별절차', groups:[
+ {part:'제1편 · 형사소송법 서론', cards:[
+   {t:'소송주체', c:['관할 일반','관련사건 병합심리','제척 사유','제척(약식명령 법관의 정식재판 관여)','제척(증거보전·수탁판사·항소심)','기피와 회피','당사자능력·소송능력','성명모용','위장출석','진술거부권','변호인 일반','접견교통권','피의자신문참여권','침해에 대한 구제수단']},
+   {t:'소송행위와 소송조건', c:['소송행위와 소송조건','변호인 선임서 보정적 추완','착오에 의한 절차형성적 소송행위 효력']},
+ ]},
+ {part:'제2편 · 수사와 공소제기', cards:[
+   {t:'수사 일반', c:['수사의 조건(필요성·상당성)','고소 일반','고소불가분의 원칙','고소포기 가능여부','친족상도례','고발','반의사불벌죄','불심검문·소지품검사','임의수사 일반','임의동행']},
+   {t:'대인적 강제처분 — 체포·구속', tag:'hot', c:['체포영장에 의한 체포','현행범인 체포',['긴급체포','hot'],'위법한 체포 대응방법','구속 일반','피의자 구속 절차','구속영장에 의한 조사실 구인','별건구속','형집행장 집행','피고인 구속 절차','수사단계 석방제도(기소 전)','법원단계 석방제도(기소 후)','재체포·재구속 제한']},
+   {t:'대물적 강제처분 — 압수·수색·검증', tag:'hot', c:['압수물 환부·가환부',['압수·수색 관련성','hot'],'압수·수색영장 일반','영장 집행절차','체포·구속과 피의자 수색',['체포·구속현장 압수·수색','hot'],'긴급체포 후 압수·수색','범죄장소 압수수색','유류물 압수',['임의제출물 압수','hot'],['전자정보 압수','hot'],'강제채혈·채뇨','통신비밀보호법','수출입물품 통관절차']},
+   {t:'수사상 증거보전 · 수사종결', c:['증거보전청구·증인신문청구','검사와 사법경찰관 관계','재정신청','공소제기 후 강제수사','공소제기 후 피고인 신문','공소제기 후 참고인 조사']},
+   {t:'공소의 제기', tag:'hot', c:['일죄 일부 공소제기','공소제기 성립·유효','공소사실 특정(공소장 기재사항)','예비적·택일적 공소제기','공소권남용 이론','공소장일본주의','공소시효','공소시효 정지']},
+ ]},
+ {part:'제3편 · 공판', cards:[
+   {t:'공판심리의 범위', tag:'hot', c:[['공소장변경 일반','hot'],['공소사실 동일성(공소장변경 한계)','hot'],'공소장변경 없는 직권인정','구체적 판례','공소취소','이중기소']},
+   {t:'공판절차 · 증인신문', c:['공판준비기일','공판단계 열람·등사권','공판기일의 절차','소송관계인의 출석','공동피고인 증인적격·법정진술','증인신문·감정인신문','증언거부권','반대신문권·증인신문참여권','증인신문절차','증인보호 증인신문 방법']},
+   {t:'특수공판 · 증거법 총론', c:['간이공판절차','국민참여재판','엄격한 증명과 자유로운 증명','증명책임']},
+   {t:'위법수집증거 · 자백배제', tag:'hot', c:[['위법수집증거배제법칙','hot'],'자백배제법칙']},
+   {t:'전문법칙', tag:'hot', c:['본래증거와 전문증거','당연 증거능력(311·315)',['피의자신문조서(312①·③)','hot'],'수사기관 검증조서(312⑥)',['참고인 진술조서(312④)','hot'],'수사과정 진술서(312⑤)','감정서(313)','진술서(313①본문·②)','진술기재서(313①)','전문진술(316)','재전문증거','진술불능·특신상태']},
+   {t:'과학적 증거 · 사본', c:['사진·영상의 증거능력','녹음파일의 증거능력','영상녹화물의 증거능력','사본의 증거능력','전자정보 동일성·무결성']},
+   {t:'증거동의 · 탄핵 · 증명력', tag:'hot', c:['증거동의','탄핵증거','자유심증주의',['자백보강법칙','hot'],'공판조서의 배타적 증명력']},
+   {t:'재판', tag:'hot', c:['재판 일반','유죄판결에 명시될 이유',['기판력의 범위','hot'],'통고처분']},
+ ]},
+ {part:'제4편 · 상소와 특별절차', cards:[
+   {t:'상소', tag:'hot', c:['상소제기','상소이익','경합범 일부 상소','포괄일죄·상상적경합 일부 상소','상소심 죄수판단 변경',['불이익변경금지 원칙','hot'],'불이익변경금지 구체적 사안','파기판결의 기속력','항소심 심리·재판','소송기록접수통지·항소이유서','상고','항고·즉시항고·재항고·준항고']},
+   {t:'비상구제절차', tag:'hot', c:['재심절차 일반','특별사면과 재심','경합범 일부 재심사유','재심사유 일반',['재심사유(증거 신규성·명백성, 5호)','hot'],'비상상고']},
+   {t:'특별절차', c:['약식명령과 정식재판청구절차']},
+ ]},
+]},
+
+]; /* ===== SUBJECTS 끝 ===== */
+
+// ---- 로컬 저장 + 마이그레이션(구버전 민법키 c|gi|ci|chi → c|civ|gi|ci|chi) ----
 let store = {};
 try{ store = JSON.parse(localStorage.getItem('minbeop_map')||'{}'); }catch(e){ store = {}; }
+function migrate(obj){
+  let changed=false;
+  for(const k of Object.keys(obj)){
+    if(/^c\|\d+\|\d+\|\d+$/.test(k)){
+      const nk = 'c|civ|' + k.slice(2);
+      if(!(nk in obj)) obj[nk] = obj[k];
+      delete obj[k]; changed=true;
+    }
+  }
+  return changed;
+}
 function saveLocal(){ try{ localStorage.setItem('minbeop_map', JSON.stringify(store)); }catch(e){} }
+migrate(store); saveLocal();
 
 const defaults = {};
 function norm(ch){ return (typeof ch==='string') ? [ch,''] : ch; }
 function eff(id){ return (id in store) ? store[id] : (defaults[id]||''); }
 
-// ---- 렌더 ----
-const map=document.getElementById('map');
-GROUPS.forEach((g, gi)=>{
-  const pl=document.createElement('div'); pl.className='part-label'; pl.textContent=g.part;
-  map.appendChild(pl);
-  const grid=document.createElement('div'); grid.className='grid';
-  g.cards.forEach((card, ci)=>{
-    const el=document.createElement('div'); el.className='card';
-    const title=document.createElement('div'); title.className='card-title';
-    title.innerHTML = card.t + (card.tag?' <span class="ct-tag" style="color:var(--'+card.tag+')">'+SYM[card.tag]+'</span>':'');
-    el.appendChild(title);
-    const chips=document.createElement('div'); chips.className='chips';
-    card.c.forEach((raw, chi)=>{
-      const [txt, def]=norm(raw);
-      const id='c|'+gi+'|'+ci+'|'+chi;
-      if(def) defaults[id]=def;
-      const st=eff(id);
-      const chip=document.createElement('span');
-      chip.className='chip'; chip.dataset.id=id; chip.dataset.text=txt;
-      if(st) chip.dataset.status=st;
-      chip.innerHTML = txt + (st?'<span class="tg">'+SYM[st]+'</span>':'');
-      chip.addEventListener('click', ()=>cycle(chip));
-      chips.appendChild(chip);
-    });
-    el.appendChild(chips);
-    grid.appendChild(el);
+// 전 과목 default 미리 수집 (탭 진행도용)
+SUBJECTS.forEach(s=>s.groups.forEach((g,gi)=>g.cards.forEach((card,ci)=>card.c.forEach((raw,chi)=>{
+  const [,def]=norm(raw); if(def) defaults['c|'+s.key+'|'+gi+'|'+ci+'|'+chi]=def;
+}))));
+
+// ---- 과목 탭 ----
+const map = document.getElementById('map');
+const tabsEl = document.getElementById('subjtabs');
+const startKey = localStorage.getItem('vsmap_subj') || 'civ';
+let currentSubj = SUBJECTS.find(s=>s.key===startKey) || SUBJECTS[0];
+
+function subjStats(s){
+  let done=0,total=0;
+  s.groups.forEach((g,gi)=>g.cards.forEach((card,ci)=>card.c.forEach((raw,chi)=>{
+    const st=eff('c|'+s.key+'|'+gi+'|'+ci+'|'+chi); total++; if(st==='done') done++;
+  })));
+  return {done,total};
+}
+function renderTabs(){
+  tabsEl.innerHTML='';
+  SUBJECTS.forEach(s=>{
+    const b=document.createElement('button');
+    b.dataset.key=s.key;
+    b.innerHTML=s.name+' <span class="bdg"></span>';
+    if(s.key===currentSubj.key) b.classList.add('on');
+    b.addEventListener('click',()=>switchSubject(s));
+    tabsEl.appendChild(b);
   });
-  map.appendChild(grid);
-});
+  updateTabBadges();
+}
+function updateTabBadges(){
+  document.querySelectorAll('#subjtabs button').forEach(b=>{
+    const s=SUBJECTS.find(x=>x.key===b.dataset.key);
+    const {done,total}=subjStats(s);
+    b.querySelector('.bdg').textContent=done+'/'+total;
+  });
+}
+function switchSubject(s){
+  currentSubj=s;
+  localStorage.setItem('vsmap_subj', s.key);
+  document.querySelectorAll('#subjtabs button').forEach(x=>x.classList.toggle('on', x.dataset.key===s.key));
+  buildSubject(s);
+}
+
+// ---- 렌더 ----
+function buildSubject(subj){
+  map.innerHTML='';
+  subj.groups.forEach((g, gi)=>{
+    const pl=document.createElement('div'); pl.className='part-label'; pl.textContent=g.part;
+    map.appendChild(pl);
+    const grid=document.createElement('div'); grid.className='grid';
+    g.cards.forEach((card, ci)=>{
+      const el=document.createElement('div'); el.className='card';
+      const title=document.createElement('div'); title.className='card-title';
+      title.innerHTML = card.t + (card.tag?' <span class="ct-tag" style="color:var(--'+card.tag+')">'+SYM[card.tag]+'</span>':'');
+      el.appendChild(title);
+      const chips=document.createElement('div'); chips.className='chips';
+      card.c.forEach((raw, chi)=>{
+        const [txt, def]=norm(raw);
+        const id='c|'+subj.key+'|'+gi+'|'+ci+'|'+chi;
+        if(def) defaults[id]=def;
+        const st=eff(id);
+        const chip=document.createElement('span');
+        chip.className='chip'; chip.dataset.id=id; chip.dataset.text=txt;
+        if(st) chip.dataset.status=st;
+        chip.innerHTML = txt + (st?'<span class="tg">'+SYM[st]+'</span>':'');
+        chip.addEventListener('click', ()=>cycle(chip));
+        chips.appendChild(chip);
+      });
+      el.appendChild(chips);
+      grid.appendChild(el);
+    });
+    map.appendChild(grid);
+  });
+  document.querySelector('.subj-head .nm').textContent=subj.name;
+  document.querySelector('.subj-head .desc').textContent=subj.sub;
+  updateTally(); apply();
+}
 
 function cycle(chip){
   const cur=chip.dataset.status||'';
@@ -229,27 +612,17 @@ function cycle(chip){
   if(next){ chip.dataset.status=next; } else { delete chip.dataset.status; }
   store[chip.dataset.id]=next;
   chip.innerHTML=chip.dataset.text+(next?'<span class="tg">'+SYM[next]+'</span>':'');
-  saveLocal(); updateTally(); cloudSave();
-}
-
-function refreshChips(){
-  document.querySelectorAll('.chip').forEach(chip=>{
-    const st=eff(chip.dataset.id);
-    if(st) chip.dataset.status=st; else delete chip.dataset.status;
-    chip.innerHTML=chip.dataset.text+(st?'<span class="tg">'+SYM[st]+'</span>':'');
-  });
-  updateTally(); apply();
+  saveLocal(); updateTally(); updateTabBadges(); cloudSave();
 }
 
 function updateTally(){
   const t={hot:0,weak:0,done:0};
-  document.querySelectorAll('.chip').forEach(c=>{ const s=c.dataset.status; if(s)t[s]++; });
+  document.querySelectorAll('#map .chip').forEach(c=>{ const s=c.dataset.status; if(s)t[s]++; });
   document.getElementById('tally').innerHTML =
     '<span style="color:var(--hot)">◎ <b>'+t.hot+'</b></span>'+
     '<span style="color:var(--weak)">★ <b>'+t.weak+'</b></span>'+
     '<span style="color:var(--done)">✓ <b>'+t.done+'</b></span>';
 }
-updateTally();
 
 // ---- 검색 + 필터 ----
 let activeFilter='all', query='';
@@ -261,7 +634,7 @@ document.getElementById('filters').addEventListener('click', e=>{
 document.getElementById('q').addEventListener('input', e=>{ query=e.target.value.trim().toLowerCase(); apply(); });
 
 function apply(){
-  document.querySelectorAll('.grid').forEach(grid=>{
+  document.querySelectorAll('#map .grid').forEach(grid=>{
     grid.querySelectorAll('.card').forEach(card=>{
       const title=card.querySelector('.card-title').textContent.toLowerCase();
       let cardVisible=false;
@@ -276,7 +649,7 @@ function apply(){
       card.classList.toggle('hide', !cardVisible);
     });
   });
-  document.querySelectorAll('.part-label').forEach(pl=>{
+  document.querySelectorAll('#map .part-label').forEach(pl=>{
     let nx=pl.nextElementSibling, any=false;
     if(nx && nx.classList.contains('grid')) any=[...nx.querySelectorAll('.card')].some(c=>!c.classList.contains('hide'));
     pl.classList.toggle('hide', !any);
@@ -290,6 +663,10 @@ function apply(){
   const d=Math.round((exam-t)/86400000);
   document.getElementById('dnum').textContent = d>0?('D-'+d):(d===0?'D-DAY':'D+'+(-d));
 })();
+
+// ---- 초기 렌더 ----
+renderTabs();
+buildSubject(currentSubj);
 
 // ---- Firebase 동기화 ----
 let cloudUser=null, cloudRef=null, cloudSet=null, saveTimer=null;
@@ -338,7 +715,8 @@ async function initFirebase(){
         const snap=await fsMod.getDoc(cloudRef);
         const remote=(snap.exists() && snap.data().vsmap)||{};
         store=Object.assign({}, store, remote);   // 클라우드 값 우선 병합
-        saveLocal(); refreshChips();
+        migrate(store);                            // 클라우드의 구버전 민법키도 변환
+        saveLocal(); buildSubject(currentSubj); updateTabBadges();
         cloudSave();                               // 병합 결과 다시 업로드
       }catch(e){ setSync('on','로그인됨 · 동기화 오류'); }
     } else {
